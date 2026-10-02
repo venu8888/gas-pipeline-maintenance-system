@@ -1,0 +1,28 @@
+{
+  "dataset": "Pipeline Defect Dataset",
+  "kaggle_identifier": "simplexitypipeline/pipeline-defect-dataset",
+  "repository_root": "data/raw/train",
+  "tracked": true,
+  "storage": "Git LFS",
+  "size_bytes": 1292073488,
+  "reason": "Raw images were explicitly added through Git LFS at user request.",
+  "audit": {
+    "total_images": 22120,
+    "total_annotation_files": 0,
+    "total_annotations": 0,
+    "image_formats": {
+      "jpeg": 22120
+    },
+    "mapping_matches_expected": false,
+    "class_distribution_available": false,
+    "training_ready": false
+  },
+  "expected_classes": {
+    "0": "Deformation",
+    "1": "Obstacle",
+    "2": "Rupture",
+    "3": "Disconnect",
+    "4": "Misalignment",
+    "5": "Deposition"
+  }
+}

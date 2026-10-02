@@ -1,0 +1,11 @@
+path: data/images/images/train
+train: .
+val: .
+test: .
+names:
+  0: Deformation
+  1: Obstacle
+  2: Rupture
+  3: Disconnect
+  4: Misalignment
+  5: Deposition

@@ -1,0 +1,52 @@
+{
+  "status": "BLOCKED",
+  "dataset": "/workspaces/gas-pipeline-maintainence-system/data/raw",
+  "total_images": 21011,
+  "total_annotation_files": 3,
+  "image_extensions": [
+    ".jpg"
+  ],
+  "annotation_files": {
+    "txt": [
+      "requirements.txt"
+    ],
+    "json": [
+      "data/dataset_manifest.json",
+      "reports/dataset_audit.json"
+    ],
+    "xml": [],
+    "yaml": [
+      "config/config.yaml",
+      "data/dataset.yaml"
+    ]
+  },
+  "annotations_found": false,
+  "blocker": "The available images do not contain ground-truth defect annotations.",
+  "expected_classes": {
+    "0": "Deformation",
+    "1": "Obstacle",
+    "2": "Rupture",
+    "3": "Disconnect",
+    "4": "Misalignment",
+    "5": "Deposition"
+  },
+  "search_summary": {
+    "total_annotation_files": 6,
+    "by_extension": {
+      ".csv": [
+        "reports/dataset_audit.csv"
+      ],
+      ".json": [
+        "data/dataset_manifest.json",
+        "reports/dataset_audit.json"
+      ],
+      ".txt": [
+        "requirements.txt"
+      ],
+      ".yaml": [
+        "config/config.yaml",
+        "data/dataset.yaml"
+      ]
+    }
+  }
+}
