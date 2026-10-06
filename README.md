@@ -1,31 +1,54 @@
-# Gas Pipeline Maintenance Rover ? Baseline V1
+# Gas Pipeline Maintenance Rover
 
-Software-only pipeline inspection baseline. It supports the six-class Pipeline Defect Dataset (Deformation, Obstacle, Rupture, Disconnect, Misalignment, Deposition), YOLO training/evaluation, image/video inference, temporal confirmation, duplicate suppression, simulated distance, SQLite events, confirmed-image storage, replay, dashboard, and HTML reports. Existing project description is preserved in this expanded documentation.
+This repository is configured for the local dataset you added under `data/`:
+
+- Images: `data/images/images/train`
+- Labels: `data/labels/labels/train`
+- Dataset config: `data/dataset.yaml`
+
+The project trains a YOLO model for six defect classes:
+
+- Deformation
+- Obstacle
+- Rupture
+- Disconnect
+- Misalignment
+- Deposition
 
 ## Quick start
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate
+.venv\Scripts\activate
 pip install -r requirements.txt
-python training/dataset_audit.py
+python training/dataset_audit.py --root data
+python training/train.py --config config/config.yaml
 ```
 
-The audit is read-only and writes `reports/dataset_audit.json` and `.csv`. The 22,120 JPEG images are stored under `data/raw/train` via Git LFS, but the supplied copy contains no YOLO label files, so no class distribution is inferred and training is blocked until labels are supplied. Dataset facts are recorded in `data/dataset_manifest.json`. Use `scripts/download_dataset.py` for Kaggle (credentials are required).
+The dataset audit checks the actual label/image pairing and class mapping and writes `reports/dataset_audit.json` and `.csv`.
 
 ## Training and evaluation
 
-Prepare/verify `data/dataset.yaml`, then run `python training/train.py [--model yolo26s.pt --epochs 100 --imgsz 640]`. Ultralytics is imported only when training/evaluation/inference is requested, with clear errors when unavailable. Evaluation writes only actual metrics to `reports/evaluation_metrics.json`; weights and run artifacts remain ignored.
+The project uses the local dataset directly and keeps the model checkpoints in `models/` and experiment output in `training_outputs/`.
 
-## Replay pipeline
-
-```bash
-python simulation/video_replay.py --source inspection.mp4 --weights models/best.pt
-python reports/generate_report.py --session SESSION_ID --database inspection/SESSION_ID/events.db
-streamlit run dashboard/app.py
+```powershell
+python training\split_dataset.py
+python training\train.py --epochs 100 --imgsz 640 --batch auto --device 0 --workers 4
+python training\evaluate.py --weights models\best.pt --data data\dataset.yaml --split test
 ```
 
-A detection must persist for the configured number of frames (default three). One best-confidence frame is saved only after confirmation. Events explicitly use `distance_source: simulation`; no GPIO or Raspberry Pi dependency exists. `Obstacle` is detected, displayed, and logged but never drives motors. Interfaces in `simulation/hardware.py` are ready for later camera, encoder, and ultrasonic implementations.
+The split command writes deterministic 70/20/10 train/validation/test image manifests without copying the image files. It uses seed 42 by default. Ultralytics updates `last.pt` at each completed epoch and retains `best.pt`; extra numbered epoch copies are disabled to reduce checkpoint I/O. To resume from a checkpoint, pass `--resume-from training_outputs\<run>\weights\last.pt`. Recovery is at the latest saved epoch boundary, not an arbitrary batch within an epoch. GPU training requires a CUDA-enabled PyTorch build; the script stops with an actionable error rather than silently using the CPU when GPU device `0` is requested. Automatic batch sizing, mixed precision, and four data-loader workers are enabled for GPU training. If sufficient system RAM is available, `--cache ram` can speed up image loading; it is opt-in because the memory requirement depends on image dimensions. The script also records the best epoch in the training metadata. Use `--device cpu` only to explicitly run on the CPU.
+
+## Rover-specific requirements
+
+This repo still includes simulation support for a rover that can:
+
+- capture a camera frame,
+- compute distance travelled from an encoder/sensor simulation,
+- store only confirmed defect events and distance metadata in SQLite,
+- alert via the event pipeline when a defect is confirmed.
+
+The simulated hardware does not require a physical Raspberry Pi or ultrasonic sensor to run.
 
 ## Layout
 
@@ -35,4 +58,4 @@ A detection must persist for the configured number of frames (default three). On
 - `storage/`: SQLite and confirmed image store
 - `dashboard/`, `reports/`, `scripts/`, `tests/`
 
-Run tests with `python -m unittest discover -s tests` and compile checks with `python -m compileall .`. Raw data, models, caches, inspection output, secrets, and virtual environments are excluded by `.gitignore`.
+Run tests with `python -m unittest discover -s tests` and compile checks with `python -m compileall .`.

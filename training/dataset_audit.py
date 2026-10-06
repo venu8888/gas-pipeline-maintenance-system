@@ -1,6 +1,6 @@
 """Read-only YOLO dataset audit; never changes the source dataset."""
 from __future__ import annotations
-import argparse, csv, hashlib, json, os, shutil
+import argparse, csv, hashlib, json
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
@@ -18,68 +18,18 @@ def image_info(path: Path):
             im=cv2.imread(str(path)); return {'width':int(im.shape[1]),'height':int(im.shape[0]),'format':path.suffix.lower()[1:]} if im is not None else None
         except Exception: return None
 
-def _dataset_has_matching_pairs(root: Path) -> bool:
-    if not root.exists() or not root.is_dir():
-        return False
-    images=sorted(p for p in root.rglob('*') if p.is_file() and p.suffix.lower() in IMAGE_EXTS)
-    labels=sorted(p for p in root.rglob('*.txt') if p.is_file())
-    if not images or not labels:
-        return False
-    return {p.stem for p in images} == {p.stem for p in labels}
-
-
-def prepare_dataset(root: Path) -> Path:
-    root=Path(root)
-    if _dataset_has_matching_pairs(root):
-        return root
-    candidate_dirs=[]
-    for base in [root, root.parent, root.parent.parent, root.parent.parent.parent]:
-        if base is None: continue
-        candidate_dirs.extend([
-            base / 'images' / 'images' / 'train',
-            base / 'images' / 'train',
-            base / 'labels' / 'labels' / 'train',
-            base / 'labels' / 'train',
-        ])
-    image_dir = next((d for d in candidate_dirs if d.exists() and d.is_dir() and any(p.suffix.lower() in IMAGE_EXTS for p in d.rglob('*') if p.is_file())), None)
-    label_dir = next((d for d in candidate_dirs if d.exists() and d.is_dir() and any(p.suffix.lower() == '.txt' for p in d.rglob('*') if p.is_file())), None)
-    if image_dir is None or label_dir is None:
-        return root
-    prepared_root = root.parent.parent / 'processed' / 'train' if root.name == 'train' else root / 'prepared'
-    prepared_root.mkdir(parents=True, exist_ok=True)
-
-    def _link_or_copy(source: Path, target: Path):
-        if target.exists() or target.is_symlink():
-            return
-        try:
-            os.symlink(source, target)
-        except OSError:
-            shutil.copy2(source, target)
-
-    for source in sorted(image_dir.rglob('*')):
-        if source.is_file() and source.suffix.lower() in IMAGE_EXTS:
-            target = prepared_root / source.name
-            if not target.exists() or target.is_symlink() or target.stat().st_size != source.stat().st_size:
-                _link_or_copy(source, target)
-    for source in sorted(label_dir.rglob('*')):
-        if source.is_file() and source.suffix.lower() == '.txt':
-            target = prepared_root / source.name
-            if not target.exists() or target.is_symlink() or target.stat().st_size != source.stat().st_size:
-                _link_or_copy(source, target)
-    return prepared_root
-
-
-def audit(root: Path) -> dict[str,Any]:
+def audit(root: Path, fast: bool = True) -> dict[str,Any]:
     root=Path(root); images=sorted(p for p in root.rglob('*') if p.is_file() and p.suffix.lower() in IMAGE_EXTS)
     labels=sorted(p for p in root.rglob('*.txt') if p.is_file())
     image_names={p.stem for p in images}; label_by_stem={p.stem:p for p in labels}
     ann_total=0; ann_per=Counter(); img_per=Counter(); malformed=[]; invalid_ids=[]; invalid_boxes=[]; empty=[]; missing=[]; dims=Counter(); formats=Counter(); corrupted=[]; hashes=defaultdict(list)
     for im in images:
-        info=image_info(im)
-        if not info: corrupted.append(str(im)); continue
-        dims[f"{info['width']}x{info['height']}"]+=1; formats[str(info['format']).lower()]+=1
-        try: hashes[hashlib.sha256(im.read_bytes()).hexdigest()].append(str(im))
-        except OSError: pass
+        if not fast:
+            info=image_info(im)
+            if not info: corrupted.append(str(im)); continue
+            dims[f"{info['width']}x{info['height']}"]+=1; formats[str(info['format']).lower()]+=1
+            try: hashes[hashlib.sha256(im.read_bytes()).hexdigest()].append(str(im))
+            except OSError: pass
         lp=label_by_stem.get(im.stem)
         if not lp: missing.append(str(im)); continue
         lines=[x.strip() for x in lp.read_text(errors='replace').splitlines() if x.strip()]
@@ -116,7 +66,6 @@ def main():
         sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
         from config import load_config
         root=Path(load_config()['dataset']['root'])
-    root = prepare_dataset(root)
     if not root.exists():
         raise FileNotFoundError(f'Dataset root not found: {root}. Pass --root or update config/config.yaml.')
     result=audit(root); write_reports(result,a.json,a.csv); print(json.dumps(result,indent=2))

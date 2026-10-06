@@ -1,7 +1,8 @@
-path: data/images/images/train
-train: .
-val: .
-test: .
+path: data
+train: splits/train.txt
+val: splits/val.txt
+test: splits/test.txt
+nc: 6
 names:
   0: Deformation
   1: Obstacle
